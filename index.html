@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Mascot Up-Jumper — Level Edition</title>
+<style>
+  :root{ --bg:#070818; --ink:#eef4ff; --mut:#9fb0d9; --ring:#2a2e58; --g1:#ff6ec4; --g2:#7873f5; --ok:#aef7c1; --bad:#ff9aa7; }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{ margin:0; background:radial-gradient(1200px 800px at 30% -10%, #12163a 0%, #070818 55%, #040614 100%); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; overflow:hidden; }
+  #game{position:fixed; inset:0}
+  .hud{ position:fixed; left:0; right:0; top:0; display:flex; gap:8px; padding:10px; pointer-events:none; }
+  .chip{ background:rgba(10,15,40,.72); border:1px solid #223; border-radius:12px; padding:8px 10px; display:flex; align-items:center; gap:8px; pointer-events:auto; backdrop-filter:blur(10px) }
+  .bar{height:10px; border-radius:999px; background:#0b1030; border:1px solid #223; overflow:hidden; width:180px}
+  .bar>i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--g1),var(--g2)); transition:width .2s}
+  .overlay{ position:fixed; inset:0; display:grid; place-items:center; background:linear-gradient(180deg,rgba(10,7,24,.55),rgba(7,8,24,.85)); }
+  .panel{ width:min(560px,92%); background:#0f1226; border:1px solid var(--ring); border-radius:18px; padding:22px;
+          box-shadow:0 0 60px rgba(120,115,245,.25), inset 0 0 0 1px rgba(255,255,255,.02); }
+  h1{margin:0 0 8px; font-size:22px}
+  .mut{color:var(--mut)} .row{display:flex; gap:10px; flex-wrap:wrap}
+  .btn{padding:12px 14px; background:#10163b; color:var(--ink); border:1px solid #2a2e58; border-radius:12px; cursor:pointer; font-weight:700}
+  .btn[disabled]{opacity:.5; cursor:not-allowed}
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px}
+  .note{font-size:12px; color:var(--mut); margin-top:6px}
+  .toast{ position:fixed; left:50%; transform:translateX(-50%); top:54px; padding:10px 14px; border-radius:12px; background:#11163d; border:1px solid #2a2e58; color:#cfe2ff; font-weight:700; display:none; }
+  .flash{position:fixed; inset:0; pointer-events:none; background:#fff; opacity:0; transition:opacity .12s}
+  .footer{ position:fixed; bottom:8px; left:0; right:0; text-align:center; color:#9fb0d9; font-size:11px; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="chip">Level <b id="hLevel">1</b></div>
+  <div class="chip">XP <div class="bar"><i id="xpBar"></i></div></div>
+  <div class="chip">Coins <b id="hCoins">0</b></div>
+  <div class="chip">Best <b id="hBest">0m</b></div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="flash" id="flash"></div>
+
+<!-- Overlay -->
+<div class="overlay" id="ov">
+  <div class="panel">
+    <h1 id="ovTitle">Mascot Up-Jumper</h1>
+    <p class="mut" id="ovText">
+      Drag / hold left-right to move. Land on blocks to bounce upward, collect coins, avoid danger. Reach the height goal to clear the level.
+    </p>
+    <div class="grid">
+      <button class="btn" id="btnStart">▶ Start</button>
+      <button class="btn" id="btnResume" style="display:none">⏯ Resume</button>
+      <button class="btn" id="btnNext" style="display:none">➡ Next Level</button>
+      <button class="btn" id="btnRestart" style="display:none">↻ Restart</button>
+      <button class="btn" id="btnShop">🛍 Skins</button>
+      <button class="btn" id="btnMissions">🏆 Missions</button>
+    </div>
+    <div class="note" id="ovNote"></div>
+  </div>
+</div>
+
+<div class="footer">advanced 6D gamification: Levels • XP • Coins • Missions • Streak • Cosmetics</div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.0/dist/phaser.js"></script>
+<script>
+/* ------------------- Replace with your images ------------------- */
+const ASSETS = {
+  mascot: 'https://raw.githubusercontent.com/ndethore/phaser3-demos-assets/master/sprites/phaser-dude.png', // your mascot PNG
+  blockSolid: 'https://raw.githubusercontent.com/kenneyNL/platformer-pack-redux/master/PNG/Tiles/tile_0015.png',
+  blockFragile: 'https://raw.githubusercontent.com/kenneyNL/platformer-pack-redux/master/PNG/Tiles/tile_0016.png',
+  blockMoving: 'https://raw.githubusercontent.com/kenneyNL/platformer-pack-redux/master/PNG/Tiles/tile_0001.png',
+  coin: 'https://raw.githubusercontent.com/kenneyNL/platformer-pack-redux/master/PNG/Items/coinGold.png'
+};
+/* ------------------- Game + meta config ------------------- */
+const CFG = {
+  gravity: 1200,
+  jumpVel: -520,
+  springVel: -780,
+  cameraPadding: 240,
+  coinVal: 3,
+  levelHeights: [120, 220, 340, 480, 640, 820], // meters (approx)
+  meterScale: 64, // pixels per “meter” feel
+};
+/* ------------------- Gamification save ------------------- */
+const SAVE_KEY = 'mascot_up_v1';
+const Save = {
+  data: { level:1, xp:0, coins:0, best:0, skin:0, streak:0, lastLogin:0, missions:{ bounces:0, coins:0, height:0 } },
+  load(){ try{ const raw=localStorage.getItem(SAVE_KEY); if(raw) Object.assign(this.data, JSON.parse(raw)||{});}catch(e){} },
+  save(){ localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); }
+};
+Save.load();
+/* streak */
+(() => {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const last = Save.data.lastLogin||0;
+  const diff = Math.round((today.getTime() - last)/86400000);
+  if(diff>=1){ Save.data.streak = (diff===1)? (Save.data.streak+1) : 1; Save.data.lastLogin=today.getTime(); Save.save(); showToast('Daily streak +1 ('+Save.data.streak+')'); }
+})();
+
+/* ------------------- HUD helpers ------------------- */
+const hLevel = document.getElementById('hLevel');
+const hCoins = document.getElementById('hCoins');
+const hBest  = document.getElementById('hBest');
+const xpBar  = document.getElementById('xpBar');
+function needXP(lvl){ return 60 + (lvl-1)*60; }
+function refreshHUD(){
+  hLevel.textContent = Save.data.level;
+  hCoins.textContent = Save.data.coins|0;
+  hBest.textContent  = Math.floor(Save.data.best) + 'm';
+  const need = needXP(Save.data.level);
+  xpBar.style.width = Math.min(100, (Save.data.xp/need)*100) + '%';
+}
+
+/* ------------------- tiny audio (WebAudio) ------------------- */
+const AudioKit = (() => {
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  window.addEventListener('pointerdown', ()=>ctx.resume(), {once:true});
+  function tone(f=880, d=0.1, t='sine', v=0.2){
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=t; o.frequency.value=f; g.gain.value=v; o.connect(g); g.connect(ctx.destination);
+    o.start(); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+d); o.stop(ctx.currentTime+d+0.01);
+  }
+  return {
+    jump(){ tone(900,.09,'triangle',.18); },
+    coin(){ tone(1200,.08,'sine',.15); tone(1600,.08,'sine',.12); },
+    break(){ tone(200,.14,'sawtooth',.22); },
+    level(){ tone(1000,.12,'triangle',.22); setTimeout(()=>tone(1400,.12,'triangle',.22),120); },
+    fail(){ tone(120,.3,'square',.25); }
+  };
+})();
+
+/* ------------------- UI overlay ------------------- */
+const ov = document.getElementById('ov');
+const ovTitle = document.getElementById('ovTitle');
+const ovText  = document.getElementById('ovText');
+const ovNote  = document.getElementById('ovNote');
+const btnStart = document.getElementById('btnStart');
+const btnResume= document.getElementById('btnResume');
+const btnNext  = document.getElementById('btnNext');
+const btnRestart=document.getElementById('btnRestart');
+const btnShop  = document.getElementById('btnShop');
+const btnMissions=document.getElementById('btnMissions');
+const flashEl = document.getElementById('flash');
+const toast = document.getElementById('toast');
+
+function showToast(t){ toast.textContent = t; toast.style.display='block'; setTimeout(()=>toast.style.display='none', 1800); }
+function showOv(title, text, opts={}){
+  ovTitle.textContent = title; ovText.innerHTML = text;
+  btnStart.style.display  = opts.start  ? '' : 'none';
+  btnResume.style.display = opts.resume ? '' : 'none';
+  btnNext.style.display   = opts.next   ? '' : 'none';
+  btnRestart.style.display= opts.restart? '' : 'none';
+  ov.style.display='';
+  refreshHUD();
+}
+function hideOv(){ ov.style.display='none'; }
+
+btnShop.onclick = () => { showToast('Cosmetics coming soon ✨'); };
+btnMissions.onclick = () => {
+  const m = Save.data.missions;
+  showOv('Missions', `
+    • Bounce 30 times: <b>${m.bounces|0}</b>/30<br>
+    • Collect 50 coins: <b>${m.coins|0}</b>/50<br>
+    • Reach 300m height: <b>${m.height|0}</b>/300
+  `, {resume:true,restart:true});
+};
+
+/* ------------------- Phaser game ------------------- */
+let game, scene, cursors, pointerHeld=false, holdDir=0;
+let player, blocks, coins, cameraTarget, worldTop=0, heightM=0, currentGoal=CFG.levelHeights[0], levelCleared=false;
+
+game = new Phaser.Game({
+  type: Phaser.AUTO,
+  parent: 'game',
+  width: window.innerWidth, height: window.innerHeight,
+  physics: { default:'arcade', arcade:{ gravity:{y:CFG.gravity}, debug:false } },
+  backgroundColor: '#06091c',
+  scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
+  scene: { preload, create, update }
+});
+
+function preload(){
+  this.load.image('mascot', ASSETS.mascot);
+  this.load.image('solid', ASSETS.blockSolid);
+  this.load.image('frag',  ASSETS.blockFragile);
+  this.load.image('move',  ASSETS.blockMoving);
+  this.load.image('coin',  ASSETS.coin);
+  // 1px tex
+  this.textures.once('onload', ()=>{
+    const c=document.createElement('canvas'); c.width=c.height=2; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,2,2);
+    this.textures.addBase64('px', c.toDataURL());
+  });
+}
+
+function create(){
+  scene = this;
+  refreshHUD();
+
+  // parallax bg
+  this.add.particles(0,0,'px',{ speed:10, lifespan:6000, quantity:1, scale:{start:.9,end:0}, alpha:.20,
+    emitZone:{ type:'random', source:new Phaser.Geom.Rectangle(0,0,this.scale.width,this.scale.height)}});
+
+  // groups
+  blocks = this.physics.add.staticGroup();
+  coins  = this.physics.add.group();
+
+  // player
+  player = this.physics.add.sprite(this.scale.width/2, this.scale.height-80, 'mascot').setScale(0.8);
+  player.setCollideWorldBounds(false);
+  player.body.checkCollision.up = false;
+  player.body.checkCollision.left = false;
+  player.body.checkCollision.right = false;
+
+  // camera
+  this.cameras.main.setBackgroundColor('#070a1e');
+  this.cameras.main.startFollow(player, true, 0.1, 0.1, 0, 120);
+
+  // input
+  cursors = this.input.keyboard.createCursorKeys();
+  this.input.on('pointerdown', (p)=>{ pointerHeld=true; holdDir = (p.x < this.scale.width/2) ? -1 : 1; });
+  this.input.on('pointerup',   ()=>{ pointerHeld=false; holdDir=0; });
+  this.input.on('pointermove', (p)=>{ if(pointerHeld) holdDir = (p.x < this.scale.width/2) ? -1 : 1; });
+
+  // collisions
+  this.physics.add.collider(player, blocks, landOnBlock, undefined, this);
+  this.physics.add.overlap(player, coins, collectCoin, undefined, this);
+
+  // initial floor + stack
+  addBlock(this.scale.width/2, this.scale.height-20, 'solid', 1.0);
+  for(let i=0;i<12;i++) spawnBlockAbove();
+
+  // goal label
+  levelCleared = false;
+  currentGoal = CFG.levelHeights[(Save.data.level-1) % CFG.levelHeights.length];
+  showGoalFlag(currentGoal);
+
+  // start overlay
+  showOv('Level '+Save.data.level, `Reach <b>${currentGoal}m</b>. Land on blocks to bounce. Collect coins to buy skins later!`, {start:true});
+}
+
+function update(time, delta){
+  // horizontal control
+  const accel = 680;
+  const maxV  = 260 + Math.min(140, Save.data.level*8);
+  let dir = 0;
+  if(cursors.left.isDown) dir -= 1;
+  if(cursors.right.isDown) dir += 1;
+  if(pointerHeld) dir += holdDir;
+  player.setVelocityX(Phaser.Math.Clamp(player.body.velocity.x + dir*accel*delta/1000, -maxV, maxV));
+
+  // wrap x
+  if(player.x < -16) player.x = this.scale.width + 16;
+  if(player.x > this.scale.width + 16) player.x = -16;
+
+  // dynamic spawning as we move up
+  worldTop = Math.min(worldTop, player.y - this.scale.height);
+  while(topMostBlockY() > player.y - this.scale.height*1.2){ spawnBlockAbove(); }
+
+  // height meters (camera space)
+  heightM = Math.max(heightM, Math.floor((this.cameras.main.worldView.y * -1) / CFG.meterScale));
+  document.getElementById('hBest').textContent = Math.max(Save.data.best, heightM) + 'm';
+
+  // level clear
+  if(!levelCleared && heightM >= currentGoal){
+    levelCleared = true;
+    AudioKit.level();
+    Save.data.xp += 40;
+    Save.data.best = Math.max(Save.data.best, heightM);
+    Save.save();
+    showOv('Goal reached!', `Nice! You climbed <b>${heightM}m</b>.`, {next:true,restart:true});
+  }
+
+  // fail if fall below camera
+  if(player.y > this.cameras.main.worldView.y + this.scale.height + 200){
+    onGameOver();
+  }
+}
+
+/* ------------------- Blocks & coins ------------------- */
+let lastBlockY = 0;
+function addBlock(x, y, type, scale=1){
+  const s = blocks.create(x, y, type).setScale(0.9*scale).refreshBody();
+  s.type = type;
+  s.health = (type==='frag'? 2 : 999);
+  if(type==='move'){
+    const amp = 80 + Math.random()*80;
+    scene.tweens.add({ targets:s, x: x + (Math.random()<.5?-amp:amp), duration: 1600+Math.random()*800, yoyo:true, repeat:-1, ease:'sine.inOut' });
+  }
+  // maybe coin on it
+  if(Math.random() < 0.55){
+    const c = coins.create(x + (Math.random()*60-30), y - 28, 'coin').setScale(0.9);
+    c.body.setAllowGravity(false);
+    c.setData('value', CFG.coinVal);
+  }
+  lastBlockY = y;
+}
+function spawnBlockAbove(){
+  const top = player.y - (lastBlockY ? 260 : 140);
+  const gap = Phaser.Math.Between(90, 150);
+  const y = lastBlockY - gap || (scene.scale.height-80);
+  const x = Phaser.Math.Between(50, scene.scale.width-50);
+  const r = Math.random();
+  let type = 'solid';
+  if(r < 0.15 + 0.02*Save.data.level) type = 'move';
+  else if(r < 0.35 + 0.03*Save.data.level) type = 'frag';
+  addBlock(x, y, type, 1);
+}
+function topMostBlockY(){
+  let min=Infinity;
+  blocks.children.iterate(b=>{ if(b && b.y < min) min=b.y; });
+  return min;
+}
+
+/* land + effects */
+function landOnBlock(player, platform){
+  // allow only when falling & feet above platform top
+  if(player.body.velocity.y > 0 && player.y < platform.y){
+    // jump strength: spring for 'move', normal for solid, fragile reduces
+    let v = CFG.jumpVel;
+    if(platform.type==='move') v = CFG.springVel;
+    player.setVelocityY(v);
+    AudioKit.jump();
+
+    // fragile handling
+    if(platform.type==='frag'){
+      platform.health--;
+      if(platform.health<=0){
+        platform.disableBody(true,true);
+        AudioKit.break();
+        flash(.08);
+      }else{
+        platform.setAlpha(0.6);
+      }
+    }
+
+    // missions
+    Save.data.missions.bounces++;
+    Save.save();
+  }
+}
+
+/* coins */
+function collectCoin(_p, coin){
+  coin.disableBody(true,true);
+  Save.data.coins += coin.getData('value')||1;
+  Save.data.xp += 3;
+  Save.data.missions.coins++;
+  AudioKit.coin();
+  Save.save(); refreshHUD();
+}
+
+/* goal flag */
+function showGoalFlag(meters){
+  const y = -meters * CFG.meterScale;
+  const flag = scene.add.rectangle(scene.scale.width-26, y, 18, 10, 0xff6ec4).setOrigin(1,1);
+  scene.add.text(scene.scale.width-22, y-18, meters+'m', { font:'12px system-ui', fill:'#cfe2ff' }).setOrigin(1,1);
+}
+
+/* fx helpers */
+function flash(alpha=0.5){ flashEl.style.opacity = alpha; requestAnimationFrame(()=> flashEl.style.opacity = 0); }
+
+/* end states */
+function onGameOver(){
+  AudioKit.fail();
+  Save.data.best = Math.max(Save.data.best, heightM);
+  Save.save(); refreshHUD();
+  showOv('You fell!', `You climbed <b>${heightM}m</b>. Try again.`, {restart:true});
+}
+
+/* ------------------- Overlay buttons ------------------- */
+btnStart.onclick = ()=>{ hideOv(); /* restart scene */ game.scene.restart(); };
+btnResume.onclick= ()=>{ hideOv(); scene.scene.resume(); };
+btnNext.onclick  = ()=>{
+  Save.data.level++; // level up pacing
+  // XP level ups
+  while(Save.data.xp >= needXP(Save.data.level)){ Save.data.xp -= needXP(Save.data.level); Save.data.level++; }
+  Save.save(); hideOv(); game.scene.restart();
+};
+btnRestart.onclick= ()=>{ hideOv(); game.scene.restart(); };
+
+/* initial OV */
+showOv('Mascot Up-Jumper', `Level <b>${Save.data.level}</b>. Reach <b>${CFG.levelHeights[(Save.data.level-1)%CFG.levelHeights.length]}m</b> to clear.`, {start:true});
+
+/* responsive */
+window.addEventListener('resize', ()=>{ game.scale.resize(window.innerWidth, window.innerHeight); });
+</script>
+</body>
+</html>
