@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Vertical Jumper — Mega‑Style</title>
+<style>
+  :root{
+    --ink:#eaf2ff; --mut:#9fb0d9; --g1:#ff6ec4; --g2:#7873f5;
+    --bg1:#0b0f1c; --bg2:#141b37; --bg3:#0a0f24;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; background:radial-gradient(1200px 800px at 25% -10%, var(--bg2), var(--bg1)); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+  .hud{position:fixed; left:0; right:0; top:0; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; pointer-events:none}
+  .chip{background:linear-gradient(180deg,#1e2750,#12193a); border:1px solid #2a3366; padding:8px 12px; border-radius:999px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,.06); font-size:14px; pointer-events:auto}
+  .btn{background:linear-gradient(180deg,#2b3568,#1a2447); border:1px solid #3a4683; padding:8px 12px; border-radius:12px; color:var(--ink); font-weight:800; letter-spacing:.2px; cursor:pointer; user-select:none; pointer-events:auto}
+  #game{position:fixed; inset:0}
+  .overlay{position:fixed; inset:0; display:grid; place-items:center; background:rgba(6,9,20,.6); backdrop-filter:blur(6px); opacity:0; pointer-events:none; transition:opacity .2s ease}
+  .overlay.show{opacity:1; pointer-events:auto}
+  .card{width:min(92vw,520px); background:linear-gradient(180deg,#1b2148,#121a36); border:1px solid #2b3566; border-radius:20px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.55)}
+  .card h2{margin:0 0 8px}
+  .card p{margin:8px 0; color:var(--mut)}
+  .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+  .touchHints{position:fixed; left:0; right:0; bottom:14px; display:flex; justify-content:center; gap:10px; opacity:.7; pointer-events:none}
+  .hint{background:#0c1330aa; border:1px solid #2b3566; padding:6px 10px; border-radius:12px; font-weight:700}
+</style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div class="hud">
+    <div class="chip">Height: <span id="height">0</span> m</div>
+    <div style="display:flex; gap:10px; align-items:center">
+      <div class="chip">Coins: <span id="coins">0</span></div>
+      <button class="btn" id="btnGyro">Enable Tilt</button>
+      <button class="btn" id="btnPause">Pause</button>
+      <button class="btn" id="btnRestart">Restart</button>
+    </div>
+  </div>
+  <div class="touchHints"><div class="hint">◄ Tap Left / Tap Right ►</div></div>
+
+  <div id="overlay" class="overlay" aria-hidden="true">
+    <div class="card">
+      <h2 id="ovTitle">Vertical Jumper</h2>
+      <p id="ovMsg">Jump from platform to platform, collect coins, and climb as high as you can. Don’t fall off the bottom!</p>
+      <ul style="margin:8px 0 0 18px; line-height:1.6">
+        <li>Desktop: ◄ ► or A / D to move</li>
+        <li>Mobile: tap left/right half of the screen</li>
+        <li>Optional: Enable Tilt to steer with your phone</li>
+      </ul>
+      <div class="actions">
+        <button class="btn" id="ovPlay">Play</button>
+        <button class="btn" id="ovClose" style="display:none">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- tiny blip sounds; replace if you want stronger SFX -->
+  <audio id="s-coin" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+  <audio id="s-spring" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+  <audio id="s-break" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const heightEl = document.getElementById('height');
+  const coinsEl = document.getElementById('coins');
+  const overlay = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ovTitle');
+  const ovMsg = document.getElementById('ovMsg');
+  const ovPlay = document.getElementById('ovPlay');
+  const ovClose = document.getElementById('ovClose');
+  const btnPause = document.getElementById('btnPause');
+  const btnRestart = document.getElementById('btnRestart');
+  const btnGyro = document.getElementById('btnGyro');
+  const coinS = document.getElementById('s-coin');
+  const springS = document.getElementById('s-spring');
+  const breakS = document.getElementById('s-break');
+
+  let W=0,H=0, DPR=1; let running=false; let audioOn=false;
+
+  const G = 0.35;               // gravity
+  const JUMP = 10.5;            // base bounce
+  const MOVE = 0.22;            // horizontal accel
+  const AIR_FRICTION = 0.985;   // horizontal slowdown
+  const MAX_VX = 5.2;           // max horizontal speed
+
+  const PLATFORM_W = [70,110];  // min/max width
+  const PLATFORM_GAP = [70,120];// vertical gap range between platforms
+
+  const WORLD = { cameraY: 0, bestY: 0, coins: 0 };
+
+  const INPUT = { left:false, right:false, touchLeft:false, touchRight:false, tilt:0 };
+
+  const PLAYER = { x:0, y:0, vx:0, vy:-12, r:18, alive:true, springs:0 };
+
+  /** Platform types: normal, moving, breakable, spring **/
+  function makePlatform(y){
+    const typeRnd = Math.random();
+    let type = 'normal';
+    if(typeRnd>0.85) type='moving';
+    else if(typeRnd>0.70) type='break';
+    else if(typeRnd>0.58) type='spring';
+
+    const w = randBetween(PLATFORM_W[0], PLATFORM_W[1]);
+    const x = Math.random()*(W-w);
+    const p = { x, y, w, h:12, type, dir:(Math.random()<.5?-1:1), broken:false, t:Math.random()*1000 };
+    // spring pads are normal platforms with a spring center
+    return p;
+  }
+
+  let platforms=[]; // sorted by y (ascending => higher is smaller y)
+  let coins=[];     // {x,y,r}
+
+  function randBetween(a,b){ return a + Math.random()*(b-a); }
+
+  function resize(){
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
+    W = Math.floor(innerWidth); H = Math.floor(innerHeight);
+    canvas.width = Math.floor(W*DPR); canvas.height = Math.floor(H*DPR);
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+
+  function reset(){
+    WORLD.cameraY = 0; WORLD.bestY = 0; WORLD.coins = 0; coinsEl.textContent = 0;
+    PLAYER.x = W/2; PLAYER.y = H-80; PLAYER.vx = 0; PLAYER.vy = -12; PLAYER.alive=true; PLAYER.springs=0;
+    platforms.length=0; coins.length=0;
+
+    // seed some platforms under player
+    let y = H-40;
+    for(let i=0;i<16;i++){
+      platforms.push(makePlatform(y));
+      // some coins above platforms sometimes
+      if(Math.random()<0.5) coins.push({x: platforms[platforms.length-1].x + platforms[platforms.length-1].w/2, y: y-22, r:8, t:Math.random()*Math.PI*2});
+      y -= randBetween(PLATFORM_GAP[0], PLATFORM_GAP[1]);
+    }
+  }
+
+  function spawnRow(){
+    // add new platform above the highest
+    const highestY = platforms.reduce((m,p)=>Math.min(m,p.y), Infinity);
+    const ny = highestY - randBetween(PLATFORM_GAP[0], PLATFORM_GAP[1]);
+    const p = makePlatform(ny);
+    platforms.push(p);
+    if(Math.random()<0.55) coins.push({x:p.x + p.w/2, y:ny-22, r:8, t:Math.random()*Math.PI*2});
+  }
+
+  // --- Input ---
+  addEventListener('keydown', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') INPUT.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') INPUT.right=true; if(!audioOn){ audioOn=true; } });
+  addEventListener('keyup', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') INPUT.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') INPUT.right=false; });
+
+  // touch: tap left/right halves
+  canvas.addEventListener('touchstart', e=>{
+    const x = e.touches[0].clientX; INPUT.touchLeft = (x < W/2); INPUT.touchRight = !INPUT.touchLeft; audioOn=true; e.preventDefault();
+  }, {passive:false});
+  canvas.addEventListener('touchend', e=>{ INPUT.touchLeft=false; INPUT.touchRight=false; });
+
+  btnPause.addEventListener('click', ()=>{ togglePause(true); });
+  btnRestart.addEventListener('click', ()=>{ togglePause(false); reset(); running=true; });
+  ovPlay.addEventListener('click', ()=>{ overlay.classList.remove('show'); running=true; });
+  ovClose.addEventListener('click', ()=> overlay.classList.remove('show'));
+
+  btnGyro.addEventListener('click', async ()=>{
+    try{
+      if(typeof DeviceMotionEvent!=='undefined' && DeviceMotionEvent.requestPermission){
+        const ok = await DeviceMotionEvent.requestPermission(); if(ok!=='granted') return;
+      }
+      window.addEventListener('deviceorientation', e=>{ INPUT.tilt = (e.gamma||0)/25; }, true);
+      btnGyro.textContent = 'Tilt On';
+    }catch(err){ btnGyro.textContent='Tilt N/A'; }
+  });
+
+  function togglePause(show){
+    running = !show;
+    if(show){ ovTitle.textContent='Paused'; ovMsg.textContent='Tap Play to resume'; ovClose.style.display='none'; overlay.classList.add('show'); }
+    else overlay.classList.remove('show');
+  }
+
+  function update(dt){
+    // physics
+    const lr = (INPUT.left||INPUT.touchLeft? -1: 0) + (INPUT.right||INPUT.touchRight? 1: 0) + INPUT.tilt;
+    PLAYER.vx += lr * MOVE * dt*60; // scale by dt roughly
+    PLAYER.vx *= AIR_FRICTION;
+    if(PLAYER.vx> MAX_VX) PLAYER.vx= MAX_VX; if(PLAYER.vx< -MAX_VX) PLAYER.vx= -MAX_VX;
+
+    PLAYER.vy += G * dt*60;
+    PLAYER.x += PLAYER.vx * dt*60;
+    PLAYER.y += PLAYER.vy * dt*60;
+
+    // wrap horizontally
+    if(PLAYER.x<-20) PLAYER.x = W+20; else if(PLAYER.x>W+20) PLAYER.x = -20;
+
+    // platform movement + collision (only when falling)
+    for(const p of platforms){
+      if(p.type==='moving'){ p.t += dt; p.x += Math.sin(p.t*0.9)*0.6 * p.dir; if(p.x<0){p.x=0;p.dir=1}else if(p.x+p.w>W){p.x=W-p.w;p.dir=-1} }
+      if(PLAYER.vy>0){
+        // simple AABB + circle-ish check: check if feet crossed platform top between last frame and now
+        const px = PLAYER.x, py = PLAYER.y, pr = PLAYER.r;
+        const onY = (py+pr >= p.y && py+pr <= p.y + p.h + Math.abs(PLAYER.vy)+2);
+        const onX = (px > p.x- pr*0.7 && px < p.x + p.w + pr*0.7);
+        if(onY && onX){
+          if(p.type==='break' && !p.broken){ p.broken=true; PLAYER.vy *= 0.3; if(audioOn) {breakS.currentTime=0; breakS.play().catch(()=>{});} continue; }
+          // spring pad gives extra boost
+          if(p.type==='spring'){
+            PLAYER.vy = -JUMP*1.45; if(audioOn){ springS.currentTime=0; springS.play().catch(()=>{});} }
+          else { PLAYER.vy = -JUMP; }
+          PLAYER.y = p.y - pr; // place on top
+        }
+      }
+    }
+
+    // remove offscreen platforms & coins, spawn new above
+    platforms = platforms.filter(p => p.y < WORLD.cameraY + H + 80 && !p._kill);
+    coins = coins.filter(c => c.y < WORLD.cameraY + H + 80);
+    while(platforms.length<18) spawnRow();
+
+    // camera follows upward (lower y is higher)
+    if(PLAYER.y < WORLD.cameraY + H*0.4){ WORLD.cameraY = PLAYER.y - H*0.4; }
+    if(PLAYER.y < WORLD.bestY) WORLD.bestY = PLAYER.y;
+
+    // coins collect
+    for(const c of coins){
+      const dx=PLAYER.x-c.x, dy=PLAYER.y-c.y; if(dx*dx+dy*dy < (PLAYER.r+c.r)*(PLAYER.r+c.r)){
+        c.y = WORLD.cameraY + H + 100; // move off
+        WORLD.coins++; coinsEl.textContent = WORLD.coins; if(audioOn){ coinS.currentTime=0; coinS.play().catch(()=>{});} }
+      c.t += dt; // animate
+    }
+
+    // game over if fell below bottom
+    if(PLAYER.y - WORLD.cameraY > H + 40){ PLAYER.alive=false; running=false; showGameOver(); }
+  }
+
+  function showGameOver(){
+    const meters = Math.max(0, Math.round(-(WORLD.bestY - (H-80)) / 10));
+    ovTitle.textContent = 'Game Over';
+    ovMsg.innerHTML = `Height: <b>${meters} m</b><br/>Coins: <b>${WORLD.coins}</b>`;
+    ovClose.style.display='none';
+    overlay.classList.add('show');
+  }
+
+  function draw(){
+    // background sky with soft parallax
+    const y0 = -WORLD.cameraY*0.05; const y1 = -WORLD.cameraY*0.15;
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#18204a'); g.addColorStop(1,'#0a0f24');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // glow gradient
+    const rg = ctx.createRadialGradient(W*0.5, H*0.2+y1, 60, W*0.5, H*0.2+y1, H*0.9);
+    rg.addColorStop(0,'rgba(255,110,196,0.22)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0,0,W,H);
+
+    // platforms
+    for(const p of platforms){
+      const yy = p.y - WORLD.cameraY;
+      if(p.broken){ ctx.globalAlpha=0.35; }
+      // base
+      const r=10; ctx.fillStyle='#203064'; ctx.strokeStyle='#40509a'; ctx.lineWidth=2;
+      roundRect(ctx, p.x, yy, p.w, p.h, r, true, true);
+      // type accents
+      if(p.type==='moving'){ ctx.strokeStyle='#8ad6ff'; ctx.setLineDash([8,6]); ctx.strokeRect(p.x+3, yy+3, p.w-6, p.h-6); ctx.setLineDash([]); }
+      if(p.type==='break'){ ctx.strokeStyle='#ff9aa7'; ctx.beginPath(); ctx.moveTo(p.x+6,yy+2); ctx.lineTo(p.x+p.w-6,yy+p.h-2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x+6,yy+p.h-2); ctx.lineTo(p.x+p.w-6,yy+2); ctx.stroke(); }
+      if(p.type==='spring'){
+        ctx.strokeStyle='#ffd86a'; ctx.beginPath(); for(let x=p.x+p.w*0.2; x<p.x+p.w*0.8; x+=6){ ctx.moveTo(x,yy); ctx.lineTo(x+3,yy+p.h); } ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    }
+
+    // coins
+    for(const c of coins){ const yy=c.y - WORLD.cameraY; const r=c.r + Math.sin(c.t*6)*1.2; ctx.fillStyle='#ffd86a'; ctx.beginPath(); ctx.arc(c.x,yy,r,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#7a4e05'; ctx.lineWidth=2; ctx.stroke(); }
+
+    // player
+    const py = PLAYER.y - WORLD.cameraY; const px = PLAYER.x; const r = PLAYER.r;
+    // body
+    const grad = ctx.createRadialGradient(px-r*0.4, py-r*0.6, r*0.2, px, py, r*1.2);
+    grad.addColorStop(0,'#ff6ec4'); grad.addColorStop(1,'#7a3df2');
+    ctx.fillStyle = grad; ctx.strokeStyle = '#ffffff33'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    // eyes
+    ctx.fillStyle='#0b0f1c'; ctx.beginPath(); ctx.arc(px-r*0.35, py-r*0.2, r*0.18, 0, Math.PI*2); ctx.arc(px+r*0.35, py-r*0.2, r*0.18, 0, Math.PI*2); ctx.fill();
+
+    // HUD numbers
+    const meters = Math.max(0, Math.round(-(WORLD.bestY - (H-80)) / 10));
+    heightEl.textContent = meters;
+  }
+
+  function roundRect(ctx,x,y,w,h,r,fill,stroke){
+    if (typeof r === 'number') r = {tl:r,tr:r,br:r,bl:r};
+    ctx.beginPath();
+    ctx.moveTo(x+r.tl, y);
+    ctx.lineTo(x+w-r.tr, y);
+    ctx.quadraticCurveTo(x+w, y, x+w, y+r.tr);
+    ctx.lineTo(x+w, y+h-r.br);
+    ctx.quadraticCurveTo(x+w, y+h, x+w-r.br, y+h);
+    ctx.lineTo(x+r.bl, y+h);
+    ctx.quadraticCurveTo(x, y+h, x, y+h-r.bl);
+    ctx.lineTo(x, y+r.tl);
+    ctx.quadraticCurveTo(x, y, x+r.tl, y);
+    ctx.closePath();
+    if(fill) ctx.fill(); if(stroke) ctx.stroke();
+  }
+
+  let last=0;
+  function loop(t){
+    const dt = Math.min(0.04, (t-last)/1000 || 0.016); last=t;
+    if(running){ update(dt); draw(); }
+    requestAnimationFrame(loop);
+  }
+
+  // bootstrap
+  resize(); reset();
+  addEventListener('resize', ()=>{ resize(); });
+  overlay.classList.add('show');
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
