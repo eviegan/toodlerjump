@@ -24,6 +24,9 @@
   .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
   .touchHints{position:fixed; left:0; right:0; bottom:14px; display:flex; justify-content:center; gap:10px; opacity:.7; pointer-events:none}
   .hint{background:#0c1330aa; border:1px solid #2b3566; padding:6px 10px; border-radius:12px; font-weight:700}
+  .tapStart{position:fixed;inset:0;display:grid;place-items:center;background:rgba(6,9,20,.62);backdrop-filter:blur(4px);z-index:4}
+  .tapStart .bubble{padding:18px 26px;border-radius:16px;background:linear-gradient(180deg,#1b2148,#121a36);border:1px solid #2b3566;box-shadow:0 18px 48px rgba(0,0,0,.55);font-weight:900;letter-spacing:.5px}
+  .tapStart .hint{margin-top:8px;color:var(--mut);font-weight:700;font-size:12px;text-align:center}
 </style>
 </head>
 <body>
@@ -38,6 +41,13 @@
     </div>
   </div>
   <div class="touchHints"><div class="hint">◄ Tap Left / Tap Right ►</div></div>
+
+  <div id="tapStart" class="tapStart" style="display:grid">
+    <div class="bubble">
+      TAP TO START
+      <div class="hint">Tap anywhere • Arrows/A–D on desktop</div>
+    </div>
+  </div></div>
 
   <div id="overlay" class="overlay" aria-hidden="true">
     <div class="card">
@@ -74,6 +84,7 @@
   const btnPause = document.getElementById('btnPause');
   const btnRestart = document.getElementById('btnRestart');
   const btnGyro = document.getElementById('btnGyro');
+  const tapStart = document.getElementById('tapStart');
   const coinS = document.getElementById('s-coin');
   const springS = document.getElementById('s-spring');
   const breakS = document.getElementById('s-break');
@@ -174,7 +185,10 @@
 
   function togglePause(show){
     running = !show;
-    if(show){ ovTitle.textContent='Paused'; ovMsg.textContent='Tap Play to resume'; ovClose.style.display='none'; overlay.classList.add('show'); }
+    if(show){ ovTitle.textContent='Paused'; ovMsg.textContent='Tap Play to resume'; ovClose.style.display='none'; overlay.classList.remove('show');
+  // tap-to-start enables audio and gameplay
+  tapStart.addEventListener('pointerdown', ()=>{ running=true; audioOn=true; tapStart.style.display='none'; }, {once:true});
+  window.addEventListener('keydown', ()=>{ running=true; audioOn=true; tapStart.style.display='none'; }, {once:true}); }
     else overlay.classList.remove('show');
   }
 
@@ -302,7 +316,7 @@
   }
 
   // bootstrap
-  resize(); reset();
+  resize(); reset(); draw();
   addEventListener('resize', ()=>{ resize(); });
   overlay.classList.add('show');
   requestAnimationFrame(loop);
