@@ -3,72 +3,37 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Vertical Jumper — Mega‑Style (Tuned Gaps)</title>
+<title>Vertical Jumper — Clean Tap‑to‑Start</title>
 <style>
-  :root{
-    --ink:#eaf2ff; --mut:#9fb0d9; --g1:#ff6ec4; --g2:#7873f5;
-    --bg1:#0b0f1c; --bg2:#141b37; --bg3:#0a0f24;
-  }
+  :root{ --ink:#eaf2ff; --mut:#9fb0d9; --bg1:#0b0f1c; --bg2:#141b37; }
   *{box-sizing:border-box}
   html,body{height:100%}
-  body{margin:0; background:radial-gradient(1200px 800px at 25% -10%, var(--bg2), var(--bg1)); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
-  .hud{position:fixed; left:0; right:0; top:0; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; pointer-events:none; z-index:2}
-  .chip{background:linear-gradient(180deg,#1e2750,#12193a); border:1px solid #2a3366; padding:8px 12px; border-radius:999px; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,.06); font-size:14px; pointer-events:auto}
-  .btn{background:linear-gradient(180deg,#2b3568,#1a2447); border:1px solid #3a4683; padding:8px 12px; border-radius:12px; color:var(--ink); font-weight:800; letter-spacing:.2px; cursor:pointer; user-select:none; pointer-events:auto}
+  body{margin:0; background:radial-gradient(1200px 800px at 25% -10%, var(--bg2), var(--bg1)); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
   #game{position:fixed; inset:0}
-  .overlay{position:fixed; inset:0; display:grid; place-items:center; background:rgba(6,9,20,.6); backdrop-filter:blur(6px); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:3}
-  .overlay.show{opacity:1; pointer-events:auto}
-  .card{width:min(92vw,520px); background:linear-gradient(180deg,#1b2148,#121a36); border:1px solid #2b3566; border-radius:20px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.55)}
-  .card h2{margin:0 0 8px}
-  .card p{margin:8px 0; color:var(--mut)}
-  .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
-  .touchHints{position:fixed; left:0; right:0; bottom:14px; display:flex; justify-content:center; gap:10px; opacity:.7; pointer-events:none}
-  .hint{background:#0c1330aa; border:1px solid #2b3566; padding:6px 10px; border-radius:12px; font-weight:700}
-  .tapStart{position:fixed;inset:0;display:grid;place-items:center;background:rgba(6,9,20,.62);backdrop-filter:blur(4px);z-index:4}
-  .tapStart .bubble{padding:18px 26px;border-radius:16px;background:linear-gradient(180deg,#1b2148,#121a36);border:1px solid #2b3566;box-shadow:0 18px 48px rgba(0,0,0,.55);font-weight:900;letter-spacing:.5px}
-  .tapStart .hint{margin-top:8px;color:var(--mut);font-weight:700;font-size:12px;text-align:center}
+  .hud{position:fixed; left:0; right:0; top:0; display:flex; justify-content:space-between; padding:10px; z-index:2}
+  .chip{background:linear-gradient(180deg,#1e2750,#12193a); border:1px solid #2a3366; padding:8px 12px; border-radius:999px; font-weight:800; font-size:14px}
+  .btn{background:linear-gradient(180deg,#2b3568,#1a2447); border:1px solid #3a4683; padding:8px 12px; border-radius:12px; color:#fff; font-weight:800; cursor:pointer}
+  /* Tap-to-start overlay */
+  #startOverlay{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(6,9,20,.58); backdrop-filter:blur(4px); z-index:5}
+  .bubble{padding:18px 26px; border-radius:16px; background:linear-gradient(180deg,#1b2148,#121a36); border:1px solid #2b3566; box-shadow:0 18px 48px rgba(0,0,0,.55); font-weight:900; letter-spacing:.4px; text-align:center}
+  .bubble .hint{margin-top:8px; color:var(--mut); font-weight:700; font-size:12px}
 </style>
 </head>
 <body>
   <canvas id="game"></canvas>
   <div class="hud">
     <div class="chip">Height: <span id="height">0</span> m</div>
-    <div style="display:flex; gap:10px; align-items:center">
+    <div style="display:flex; gap:8px">
       <div class="chip">Coins: <span id="coins">0</span></div>
-      <button class="btn" id="btnGyro">Enable Tilt</button>
-      <button class="btn" id="btnPause">Pause</button>
-      <button class="btn" id="btnRestart">Restart</button>
+      <button id="btnRestart" class="btn">Restart</button>
     </div>
   </div>
-  <div class="touchHints"><div class="hint">◄ Tap Left / Tap Right ►</div></div>
-
-  <div id="tapStart" class="tapStart" style="display:grid">
-    <div class="bubble">
-      TAP TO START
-      <div class="hint">Tap anywhere • Arrows/A–D on desktop</div>
-    </div>
-  </div></div>
-
-  <div id="overlay" class="overlay" aria-hidden="true">
-    <div class="card">
-      <h2 id="ovTitle">Vertical Jumper</h2>
-      <p id="ovMsg">Jump platform to platform, collect coins, and climb as high as you can. Don’t fall!</p>
-      <ul style="margin:8px 0 0 18px; line-height:1.6">
-        <li>Desktop: ◄ ► or A / D</li>
-        <li>Mobile: tap left/right half of the screen</li>
-        <li>Optional: Enable Tilt to steer with your phone</li>
-      </ul>
-      <div class="actions">
-        <button class="btn" id="ovPlay">Play</button>
-        <button class="btn" id="ovClose" style="display:none">Close</button>
-      </div>
-    </div>
+  <div id="startOverlay">
+    <div class="bubble">TAP TO START<div class="hint">Tap anywhere • Arrows/A–D on desktop</div></div>
   </div>
 
-  <!-- tiny blip sounds; replace if desired -->
+  <!-- small SFX (replace if you want) -->
   <audio id="s-coin" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
-  <audio id="s-spring" preload="auto"><source src="data:audio/mp3;base64>//uQZAAAAAAAAAAAAAAAAAAAA</source></audio>
-  <audio id="s-break" preload="auto"><source src="data:audio/mp3;base64>//uQZAAAAAAAAAAAAAAAAAAAA</source></audio>
 
 <script>
 (function(){
@@ -76,53 +41,23 @@
   const ctx = canvas.getContext('2d');
   const heightEl = document.getElementById('height');
   const coinsEl = document.getElementById('coins');
-  const overlay = document.getElementById('overlay');
-  const ovTitle = document.getElementById('ovTitle');
-  const ovMsg = document.getElementById('ovMsg');
-  const ovPlay = document.getElementById('ovPlay');
-  const ovClose = document.getElementById('ovClose');
-  const btnPause = document.getElementById('btnPause');
+  const startOverlay = document.getElementById('startOverlay');
   const btnRestart = document.getElementById('btnRestart');
-  const btnGyro = document.getElementById('btnGyro');
-  const tapStart = document.getElementById('tapStart');
   const coinS = document.getElementById('s-coin');
-  const springS = document.getElementById('s-spring');
-  const breakS = document.getElementById('s-break');
 
-  let W=0,H=0, DPR=1; let running=false; let audioOn=false;
+  let W=0,H=0,DPR=1; let running=false; let audioOn=false;
 
-  // Tuned physics so the game doesn't insta-end
-  const G = 0.30;              // gravity
-  const JUMP = 9.8;            // base bounce
-  const MOVE = 0.22;           // horizontal accel
-  const AIR_FRICTION = 0.985;  // horizontal slowdown
-  const MAX_VX = 5.2;          // max horizontal speed
+  // Tuned, easier physics + tighter gaps
+  const G=0.30, JUMP=9.8, MOVE=0.22, AIR=0.985, MAX_VX=5.2;
+  const PLATFORM_W=[80,120];          // width range
+  const PLATFORM_GAP=[50,80];          // **tighter** vertical gaps
 
-  // Tighter gaps for easier start
-  const PLATFORM_W = [80,120];   // min/max width
-  const PLATFORM_GAP = [55,85];  // vertical gap range
+  const WORLD={cameraY:0, bestY:0, coins:0};
+  const INPUT={left:false, right:false};
+  const PLAYER={x:0, y:0, vx:0, vy:-8, r:18, alive:true};
 
-  const WORLD = { cameraY: 0, bestY: 0, coins: 0 };
-  const INPUT = { left:false, right:false, touchLeft:false, touchRight:false, tilt:0 };
-  const PLAYER = { x:0, y:0, vx:0, vy:-8, r:18, alive:true };
-
-  /** Platform types: normal, moving, breakable, spring **/
-  function makePlatform(y){
-    const typeRnd = Math.random();
-    let type = 'normal';
-    if(typeRnd>0.85) type='moving';
-    else if(typeRnd>0.70) type='break';
-    else if(typeRnd>0.58) type='spring';
-
-    const w = randBetween(PLATFORM_W[0], PLATFORM_W[1]);
-    const x = Math.random()*(W-w);
-    return { x, y, w, h:12, type, dir:(Math.random()<.5?-1:1), broken:false, t:Math.random()*1000 };
-  }
-
-  let platforms=[]; // sorted by y (ascending => higher is smaller y)
+  let platforms=[]; // {x,y,w,h,type}
   let coins=[];     // {x,y,r,t}
-
-  function randBetween(a,b){ return a + Math.random()*(b-a); }
 
   function resize(){
     DPR = Math.max(1, Math.min(2, window.devicePixelRatio||1));
@@ -132,193 +67,119 @@
     ctx.setTransform(DPR,0,0,DPR,0,0);
   }
 
-  function reset(){
-    WORLD.cameraY = 0; WORLD.bestY = 0; WORLD.coins = 0; coinsEl.textContent = 0;
-    PLAYER.x = W/2; PLAYER.y = H-100; PLAYER.vx = 0; PLAYER.vy = -8; PLAYER.alive=true;
-    platforms.length=0; coins.length=0;
+  function randBetween(a,b){ return a + Math.random()*(b-a); }
 
-    // seed a generous column of platforms upward so you never fall at start
-    let y = H-40;
-    for(let i=0;i<24;i++){
-      const p = makePlatform(y);
-      // keep first few as normal and wide for a safe start
-      if(i<5){ p.type='normal'; p.w = 120; p.x = Math.max(20, Math.min(W-140, W/2 - 60 + (i%2? -40:40))); }
+  function makePlatform(y){
+    const w = randBetween(PLATFORM_W[0], PLATFORM_W[1]);
+    const x = Math.random()*(W-w);
+    return {x,y,w,h:12,type:'normal'};
+  }
+
+  function reset(){
+    WORLD.cameraY=0; WORLD.bestY=0; WORLD.coins=0; coinsEl.textContent=0;
+    PLAYER.x=W/2; PLAYER.y=H-100; PLAYER.vx=0; PLAYER.vy=-8; PLAYER.alive=true;
+    platforms.length=0; coins.length=0;
+    // Seed many safe platforms near start
+    let y=H-40;
+    for(let i=0;i<26;i++){
+      const p=makePlatform(y);
+      if(i<6){ p.w=120; p.x=Math.max(20, Math.min(W-140, W/2-60 + (i%2?-40:40))); }
       platforms.push(p);
-      if(Math.random()<0.5) coins.push({x:p.x + p.w/2, y:y-22, r:8, t:Math.random()*Math.PI*2});
+      if(Math.random()<0.55) coins.push({x:p.x+p.w/2, y:y-22, r:8, t:Math.random()*6});
       y -= randBetween(PLATFORM_GAP[0], PLATFORM_GAP[1]);
     }
   }
 
   function spawnRow(){
-    // add new platform above the highest
     const highestY = platforms.reduce((m,p)=>Math.min(m,p.y), Infinity);
     const ny = highestY - randBetween(PLATFORM_GAP[0], PLATFORM_GAP[1]);
     const p = makePlatform(ny);
     platforms.push(p);
-    if(Math.random()<0.55) coins.push({x:p.x + p.w/2, y:ny-22, r:8, t:Math.random()*Math.PI*2});
+    if(Math.random()<0.55) coins.push({x:p.x+p.w/2, y:ny-22, r:8, t:Math.random()*6});
   }
 
-  // --- Input ---
-  addEventListener('keydown', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') INPUT.left=true; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') INPUT.right=true; if(!audioOn){ audioOn=true; } });
-  addEventListener('keyup', e=>{ if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') INPUT.left=false; if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') INPUT.right=false; });
+  // Input
+  addEventListener('keydown', e=>{ if(['ArrowLeft','a','A'].includes(e.key)) INPUT.left=true; if(['ArrowRight','d','D'].includes(e.key)) INPUT.right=true; });
+  addEventListener('keyup', e=>{ if(['ArrowLeft','a','A'].includes(e.key)) INPUT.left=false; if(['ArrowRight','d','D'].includes(e.key)) INPUT.right=false; });
 
-  // touch: tap left/right halves
-  canvas.addEventListener('touchstart', e=>{
-    const x = e.touches[0].clientX; INPUT.touchLeft = (x < W/2); INPUT.touchRight = !INPUT.touchLeft; audioOn=true; e.preventDefault();
-  }, {passive:false});
-  canvas.addEventListener('touchend', e=>{ INPUT.touchLeft=false; INPUT.touchRight=false; });
+  // Start game (simple, reliable)
+  function start(){ if(running) return; running=true; audioOn=true; startOverlay.remove(); }
+  startOverlay.addEventListener('click', start, {once:true});
+  window.addEventListener('keydown', start, {once:true});
+  // Fallback in case overlay click is blocked
+  setTimeout(()=>{ if(!running) start(); }, 4000);
 
-  btnPause.addEventListener('click', ()=>{ togglePause(true); });
-  btnRestart.addEventListener('click', ()=>{ togglePause(false); reset(); running=true; });
-  ovPlay.addEventListener('click', ()=>{ overlay.classList.remove('show'); running=true; });
-  ovClose.addEventListener('click', ()=> overlay.classList.remove('show'));
-
-  btnGyro.addEventListener('click', async ()=>{
-    try{
-      if(typeof DeviceMotionEvent!=='undefined' && DeviceMotionEvent.requestPermission){
-        const ok = await DeviceMotionEvent.requestPermission(); if(ok!=='granted') return;
-      }
-      window.addEventListener('deviceorientation', e=>{ INPUT.tilt = (e.gamma||0)/25; }, true);
-      btnGyro.textContent = 'Tilt On';
-    }catch(err){ btnGyro.textContent='Tilt N/A'; }
-  });
-
-  function togglePause(show){
-    running = !show;
-    if(show){ ovTitle.textContent='Paused'; ovMsg.textContent='Tap Play to resume'; ovClose.style.display='none'; overlay.classList.remove('show');
-  // tap-to-start enables audio and gameplay
-  tapStart.addEventListener('pointerdown', ()=>{ running=true; audioOn=true; tapStart.style.display='none'; }, {once:true});
-  window.addEventListener('keydown', ()=>{ running=true; audioOn=true; tapStart.style.display='none'; }, {once:true}); }
-    else overlay.classList.remove('show');
-  }
+  btnRestart.addEventListener('click', ()=>{ reset(); running=true; });
 
   function update(dt){
-    // physics
-    const lr = (INPUT.left||INPUT.touchLeft? -1: 0) + (INPUT.right||INPUT.touchRight? 1: 0) + INPUT.tilt;
-    PLAYER.vx += lr * MOVE * dt*60; // scale by dt roughly
-    PLAYER.vx *= AIR_FRICTION;
-    if(PLAYER.vx> MAX_VX) PLAYER.vx= MAX_VX; if(PLAYER.vx< -MAX_VX) PLAYER.vx= -MAX_VX;
+    // horizontal control
+    const lr=(INPUT.left?-1:0)+(INPUT.right?1:0);
+    PLAYER.vx += lr*MOVE*dt*60; PLAYER.vx *= AIR; if(PLAYER.vx>MAX_VX)PLAYER.vx=MAX_VX; if(PLAYER.vx<-MAX_VX)PLAYER.vx=-MAX_VX;
+    // gravity
+    PLAYER.vy += G*dt*60; PLAYER.x += PLAYER.vx*dt*60; PLAYER.y += PLAYER.vy*dt*60;
+    if(PLAYER.x<-20) PLAYER.x=W+20; else if(PLAYER.x>W+20) PLAYER.x=-20;
 
-    PLAYER.vy += G * dt*60;
-    PLAYER.x += PLAYER.vx * dt*60;
-    PLAYER.y += PLAYER.vy * dt*60;
-
-    // wrap horizontally
-    if(PLAYER.x<-20) PLAYER.x = W+20; else if(PLAYER.x>W+20) PLAYER.x = -20;
-
-    // platform movement + collision (only when falling)
-    for(const p of platforms){
-      if(p.type==='moving'){
-        p.t += dt; p.x += Math.sin(p.t*0.9)*0.6 * p.dir; if(p.x<0){p.x=0;p.dir=1}else if(p.x+p.w>W){p.x=W-p.w;p.dir=-1}
-      }
-      if(PLAYER.vy>0){
-        const px = PLAYER.x, py = PLAYER.y, pr = PLAYER.r;
-        const onY = (py+pr >= p.y && py+pr <= p.y + p.h + Math.abs(PLAYER.vy)+2);
-        const onX = (px > p.x- pr*0.7 && px < p.x + p.w + pr*0.7);
-        if(onY && onX){
-          if(p.type==='break' && !p.broken){ p.broken=true; PLAYER.vy *= 0.3; if(audioOn) {breakS.currentTime=0; breakS.play().catch(()=>{});} continue; }
-          if(p.type==='spring'){
-            PLAYER.vy = -JUMP*1.45; if(audioOn){ springS.currentTime=0; springS.play().catch(()=>{});} }
-          else { PLAYER.vy = -JUMP; }
-          PLAYER.y = p.y - pr; // place on top
-        }
+    // collide (when falling)
+    if(PLAYER.vy>0){
+      for(const p of platforms){
+        const onY = (PLAYER.y+PLAYER.r>=p.y && PLAYER.y+PLAYER.r <= p.y+p.h+Math.abs(PLAYER.vy)+2);
+        const onX = (PLAYER.x > p.x-PLAYER.r*0.7 && PLAYER.x < p.x+p.w+PLAYER.r*0.7);
+        if(onY && onX){ PLAYER.vy = -JUMP; PLAYER.y = p.y-PLAYER.r; }
       }
     }
 
-    // cull & spawn
-    platforms = platforms.filter(p => p.y < WORLD.cameraY + H + 80 && !p._kill);
-    coins = coins.filter(c => c.y < WORLD.cameraY + H + 80);
-    while(platforms.length<22) spawnRow();
+    // spawn/cull
+    platforms = platforms.filter(p=>p.y < WORLD.cameraY + H + 80);
+    while(platforms.length<24) spawnRow();
 
     // camera follows upward
-    if(PLAYER.y < WORLD.cameraY + H*0.45){ WORLD.cameraY = PLAYER.y - H*0.45; }
+    if(PLAYER.y < WORLD.cameraY + H*0.45) WORLD.cameraY = PLAYER.y - H*0.45;
     if(PLAYER.y < WORLD.bestY) WORLD.bestY = PLAYER.y;
 
-    // coins collect
+    // coins
     for(const c of coins){
       const dx=PLAYER.x-c.x, dy=PLAYER.y-c.y; if(dx*dx+dy*dy < (PLAYER.r+c.r)*(PLAYER.r+c.r)){
-        c.y = WORLD.cameraY + H + 100; // move off
-        WORLD.coins++; coinsEl.textContent = WORLD.coins; if(audioOn){ coinS.currentTime=0; coinS.play().catch(()=>{});} }
-      c.t += dt; // animate
+        c.y = WORLD.cameraY + H + 100; WORLD.coins++; coinsEl.textContent=WORLD.coins; if(audioOn){ coinS.currentTime=0; coinS.play().catch(()=>{});} }
+      c.t += dt;
     }
 
-    // game over if fell below bottom
-    if(PLAYER.y - WORLD.cameraY > H + 60){ PLAYER.alive=false; running=false; showGameOver(); }
-  }
-
-  function showGameOver(){
-    const meters = Math.max(0, Math.round(-(WORLD.bestY - (H-80)) / 10));
-    ovTitle.textContent = 'Game Over';
-    ovMsg.innerHTML = `Height: <b>${meters} m</b><br/>Coins: <b>${WORLD.coins}</b>`;
-    ovClose.style.display='none';
-    overlay.classList.add('show');
+    // fail if you drop below screen
+    if(PLAYER.y - WORLD.cameraY > H + 60){ reset(); running=false; // show start again
+      document.body.appendChild(startOverlay); startOverlay.style.display='flex'; setTimeout(()=>{ running=true; startOverlay.style.display='none'; }, 300); // auto resume quickly
+    }
   }
 
   function draw(){
-    // background sky with soft parallax
-    const y1 = -WORLD.cameraY*0.15;
-    const g = ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,'#18204a'); g.addColorStop(1,'#0a0f24');
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    const rg = ctx.createRadialGradient(W*0.5, H*0.2+y1, 60, W*0.5, H*0.2+y1, H*0.9);
-    rg.addColorStop(0,'rgba(255,110,196,0.22)'); rg.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle = rg; ctx.fillRect(0,0,W,H);
-
+    // background
+    const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#18204a'); g.addColorStop(1,'#0a0f24'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
     // platforms
-    for(const p of platforms){
-      const yy = p.y - WORLD.cameraY; const r=10;
-      if(p.broken){ ctx.globalAlpha=0.35; }
-      ctx.fillStyle='#203064'; ctx.strokeStyle='#40509a'; ctx.lineWidth=2;
-      roundRect(ctx, p.x, yy, p.w, p.h, r, true, true);
-      if(p.type==='moving'){ ctx.strokeStyle='#8ad6ff'; ctx.setLineDash([8,6]); ctx.strokeRect(p.x+3, yy+3, p.w-6, p.h-6); ctx.setLineDash([]); }
-      if(p.type==='break'){ ctx.strokeStyle='#ff9aa7'; ctx.beginPath(); ctx.moveTo(p.x+6,yy+2); ctx.lineTo(p.x+p.w-6,yy+p.h-2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p.x+6,yy+p.h-2); ctx.lineTo(p.x+p.w-6,yy+2); ctx.stroke(); }
-      if(p.type==='spring'){ ctx.strokeStyle='#ffd86a'; ctx.beginPath(); for(let x=p.x+p.w*0.2; x<p.x+p.w*0.8; x+=6){ ctx.moveTo(x,yy); ctx.lineTo(x+3,yy+p.h); } ctx.stroke(); }
-      ctx.globalAlpha=1;
-    }
-
+    ctx.strokeStyle='#40509a'; ctx.lineWidth=2; ctx.fillStyle='#203064';
+    for(const p of platforms){ const yy=p.y-WORLD.cameraY; roundRect(ctx,p.x,yy,p.w,p.h,10,true,true); }
     // coins
-    for(const c of coins){ const yy=c.y - WORLD.cameraY; const r=c.r + Math.sin(c.t*6)*1.2; ctx.fillStyle='#ffd86a'; ctx.beginPath(); ctx.arc(c.x,yy,r,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#7a4e05'; ctx.lineWidth=2; ctx.stroke(); }
-
+    ctx.fillStyle='#ffd86a'; ctx.strokeStyle='#7a4e05';
+    for(const c of coins){ const yy=c.y-WORLD.cameraY; const r=c.r + Math.sin(c.t*6)*1.2; ctx.beginPath(); ctx.arc(c.x,yy,r,0,Math.PI*2); ctx.fill(); ctx.lineWidth=2; ctx.stroke(); }
     // player
-    const py = PLAYER.y - WORLD.cameraY; const px = PLAYER.x; const r = PLAYER.r;
-    const grad = ctx.createRadialGradient(px-r*0.4, py-r*0.6, r*0.2, px, py, r*1.2);
-    grad.addColorStop(0,'#ff6ec4'); grad.addColorStop(1,'#7a3df2');
-    ctx.fillStyle = grad; ctx.strokeStyle = '#ffffff33'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    const px=PLAYER.x, py=PLAYER.y-WORLD.cameraY, r=PLAYER.r;
+    const grad=ctx.createRadialGradient(px-r*0.4,py-r*0.6,r*0.2,px,py,r*1.2); grad.addColorStop(0,'#ff6ec4'); grad.addColorStop(1,'#7a3df2'); ctx.fillStyle=grad; ctx.strokeStyle='#ffffff33'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#0b0f1c'; ctx.beginPath(); ctx.arc(px-r*0.35, py-r*0.2, r*0.18, 0, Math.PI*2); ctx.arc(px+r*0.35, py-r*0.2, r*0.18, 0, Math.PI*2); ctx.fill();
 
-    // HUD numbers
-    const meters = Math.max(0, Math.round(-(WORLD.bestY - (H-80)) / 10));
-    heightEl.textContent = meters;
+    // HUD
+    const meters = Math.max(0, Math.round(-(WORLD.bestY - (H-80)) / 10)); heightEl.textContent = meters;
   }
 
   function roundRect(ctx,x,y,w,h,r,fill,stroke){
     if (typeof r === 'number') r = {tl:r,tr:r,br:r,bl:r};
-    ctx.beginPath();
-    ctx.moveTo(x+r.tl, y);
-    ctx.lineTo(x+w-r.tr, y);
-    ctx.quadraticCurveTo(x+w, y, x+w, y+r.tr);
-    ctx.lineTo(x+w, y+h-r.br);
-    ctx.quadraticCurveTo(x+w, y+h, x+w-r.br, y+h);
-    ctx.lineTo(x+r.bl, y+h);
-    ctx.quadraticCurveTo(x, y+h, x, y+h-r.bl);
-    ctx.lineTo(x, y+r.tl);
-    ctx.quadraticCurveTo(x, y, x+r.tl, y);
-    ctx.closePath();
+    ctx.beginPath(); ctx.moveTo(x+r.tl,y); ctx.lineTo(x+w-r.tr,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r.tr);
+    ctx.lineTo(x+w,y+h-r.br); ctx.quadraticCurveTo(x+w,y+h,x+w-r.br,y+h); ctx.lineTo(x+r.bl,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r.bl); ctx.lineTo(x,y+r.tl); ctx.quadraticCurveTo(x,y,x+r.tl,y); ctx.closePath();
     if(fill) ctx.fill(); if(stroke) ctx.stroke();
   }
 
-  let last=0;
-  function loop(t){
-    const dt = Math.min(0.04, (t-last)/1000 || 0.016); last=t;
-    if(running){ update(dt); draw(); }
-    requestAnimationFrame(loop);
-  }
+  let last=0; function loop(t){ const dt=Math.min(0.04,(t-last)/1000||0.016); last=t; if(running) update(dt); draw(); requestAnimationFrame(loop); }
 
-  // bootstrap
+  // init
   resize(); reset(); draw();
-  addEventListener('resize', ()=>{ resize(); });
-  overlay.classList.add('show');
+  addEventListener('resize', resize);
   requestAnimationFrame(loop);
 })();
 </script>
