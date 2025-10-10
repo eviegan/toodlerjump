@@ -3,403 +3,382 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Mini Match-3 — Candy Style</title>
+<title>Mini Match‑3 — Levels</title>
 <style>
   :root{
     --bg:#0b0f1c; --panel:#131a2e; --ink:#eaf2ff; --mut:#9fb0d9;
-    --g1:#ff6ec4; --g2:#7873f5; --ok:#aef7c1; --warn:#ffd86a;
-    --size: clamp(44px, 9.5vw, 68px); /* tile size (mobile friendly) */
+    --g1:#ff6ec4; --g2:#7873f5; --ok:#aef7c1; --warn:#ffd86a; --bad:#ff9aa7;
+    --size: clamp(44px, 9.2vw, 68px);
     --gap: 8px; --radius: 14px;
-    --pulse: drop-shadow(0 0 8px rgba(255,255,255,.25));
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0; background:
-      radial-gradient(1200px 800px at 20% -10%, #202a57 0%, #10152a 45%, #0b0f1c 100%);
-    color:var(--ink); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    margin:0; color:var(--ink);
+    background:radial-gradient(1200px 800px at 20% -10%, #202a57 0%, #10152a 45%, #0b0f1c 100%);
+    font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     display:grid; place-items:center; padding:20px;
   }
-  .wrap{ width:min(92vw, 860px); }
-  header{
-    display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;
-  }
-  .title{
-    font-weight:800; letter-spacing:.3px;
-    background:linear-gradient(90deg,var(--g1),var(--g2)); -webkit-background-clip:text; color:transparent;
-    font-size:clamp(20px, 4.6vw, 28px);
-  }
-  .stats{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .chip{
-    background:linear-gradient(180deg, #1c2542, #131a2e);
-    border:1px solid #263054; padding:8px 12px; border-radius:999px; font-weight:700;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-    white-space:nowrap; font-size:14px;
-  }
-  .btn{
-    background:linear-gradient(180deg, #2a3560, #1a2447);
-    border:1px solid #3a4683; padding:10px 14px; border-radius:12px; color:var(--ink);
-    font-weight:800; letter-spacing:.2px; cursor:pointer; user-select:none;
-    transition: transform .06s ease;
-  }
-  .btn:active{ transform: scale(.98); }
-  .board{
-    background: radial-gradient(800px 500px at 60% -40%, #1b2143, #10162f);
-    border:1px solid #2c3360; border-radius:20px; padding:14px; box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.04), 0 10px 40px rgba(0,0,0,.35);
-  }
-  .grid{
-    display:grid; grid-template-columns: repeat(var(--cols), var(--size));
-    gap: var(--gap);
-    touch-action:none; /* allow swipe detection */
-  }
-  .tile{
-    width:var(--size); height:var(--size); border-radius:var(--radius);
-    display:grid; place-items:center; font-weight:900; font-size:22px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.25); filter: var(--pulse);
-    position:relative; transition: transform .18s ease;
-    user-select:none;
-  }
-  .tile:active{ transform: scale(.97); }
-  /* Candy styles (colors + gloss) */
-  .t0{ background: conic-gradient(from 180deg at 70% 20%, #ff88d7, #ff6ec4 40%, #d546a1 80%, #ff88d7);
-       border:2px solid #ffb5e5; }
-  .t1{ background: conic-gradient(from 160deg at 70% 20%, #8aa0ff, #6f7eff 40%, #4552d6 80%, #8aa0ff);
-       border:2px solid #b9c2ff; }
-  .t2{ background: conic-gradient(from 170deg at 70% 20%, #6af0ff, #41ddff 40%, #12a6c8 80%, #6af0ff);
-       border:2px solid #a2f1ff; }
-  .t3{ background: conic-gradient(from 170deg at 70% 20%, #ffd86a, #ffc83a 40%, #d49b07 80%, #ffd86a);
-       border:2px solid #ffe79f; }
-  .t4{ background: conic-gradient(from 165deg at 70% 20%, #aef7c1, #6be89a 40%, #2fb969 80%, #aef7c1);
-       border:2px solid #c7fbd5; }
+  .wrap{ width:min(92vw, 980px); }
+  header{ display:flex; gap:12px; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .title{ font-weight:900; letter-spacing:.3px; font-size:clamp(20px,4.6vw,28px);
+    background:linear-gradient(90deg,var(--g1),var(--g2)); -webkit-background-clip:text; color:transparent }
+  .stats{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+  .chip{ background:linear-gradient(180deg, #1c2542, #131a2e); border:1px solid #263054; padding:8px 12px; border-radius:999px; font-weight:800; box-shadow: inset 0 1px 0 rgba(255,255,255,.06); white-space:nowrap; font-size:14px }
+  .btn{ background:linear-gradient(180deg, #2a3560, #1a2447); border:1px solid #3a4683; padding:10px 14px; border-radius:12px; color:var(--ink); font-weight:800; letter-spacing:.2px; cursor:pointer; user-select:none; transition:transform .06s ease }
+  .btn:disabled{ opacity:.45; cursor:not-allowed }
+  .btn:active{ transform:scale(.98) }
 
-  .selected{ outline:3px solid #fff7; z-index:2; }
-  .to-clear{ animation: pop .35s ease forwards; }
+  .board{ background: radial-gradient(800px 500px at 60% -40%, #1b2143, #10162f); border:1px solid #2c3360; border-radius:20px; padding:14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04), 0 10px 40px rgba(0,0,0,.35) }
+  .grid{ display:grid; grid-template-columns: repeat(var(--cols), var(--size)); gap:var(--gap); touch-action:none }
+  .tile{ width:var(--size); height:var(--size); border-radius:var(--radius); display:grid; place-items:center; font-weight:900; font-size:22px; box-shadow: 0 4px 12px rgba(0,0,0,.25); position:relative; transition: transform .18s ease }
+  .tile:active{ transform:scale(.97) }
+
+  /* Candy styles */
+  .t0{ background: conic-gradient(from 180deg at 70% 20%, #ff88d7, #ff6ec4 40%, #d546a1 80%, #ff88d7); border:2px solid #ffb5e5; filter: drop-shadow(0 0 8px rgba(255,255,255,.25)); }
+  .t1{ background: conic-gradient(from 160deg at 70% 20%, #8aa0ff, #6f7eff 40%, #4552d6 80%, #8aa0ff); border:2px solid #b9c2ff; filter: drop-shadow(0 0 8px rgba(255,255,255,.25)); }
+  .t2{ background: conic-gradient(from 170deg at 70% 20%, #6af0ff, #41ddff 40%, #12a6c8 80%, #6af0ff); border:2px solid #a2f1ff; filter: drop-shadow(0 0 8px rgba(255,255,255,.25)); }
+  .t3{ background: conic-gradient(from 170deg at 70% 20%, #ffd86a, #ffc83a 40%, #d49b07 80%, #ffd86a); border:2px solid #ffe79f; filter: drop-shadow(0 0 8px rgba(255,255,255,.25)); }
+  .t4{ background: conic-gradient(from 165deg at 70% 20%, #aef7c1, #6be89a 40%, #2fb969 80%, #aef7c1); border:2px solid #c7fbd5; filter: drop-shadow(0 0 8px rgba(255,255,255,.25)); }
+
+  .selected{ outline:3px solid #fff7; z-index:2 }
+  .to-clear{ animation: pop .35s ease forwards }
   @keyframes pop{ 30%{transform:scale(1.1)} 100%{transform:scale(0)} }
 
-  .floating{
-    position:fixed; left:50%; top:10px; transform:translateX(-50%);
-    padding:10px 14px; border-radius:12px; background:#111733; border:1px solid #2b3566;
-    font-weight:800; box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none;
-    transition: opacity .15s ease, transform .15s ease;
+  /* Jelly (goal tile) overlay */
+  .jelly::after{ content:""; position:absolute; inset:0; border-radius:inherit;
+    background: radial-gradient(120% 120% at 10% 10%, rgba(255,255,255,.45) 0%, rgba(255,255,255,0) 35%),
+                linear-gradient(135deg, rgba(120,200,255,.55), rgba(120,160,255,.25));
+    border:2px dashed rgba(200,220,255,.6); box-shadow: inset 0 0 18px rgba(80,130,255,.4)
   }
-  .floating.show{ opacity:1; transform:translate(-50%, 0); }
 
-  footer{ margin-top:12px; color:var(--mut); font-size:12px; text-align:center; }
+  .floating{ position:fixed; left:50%; top:10px; transform:translateX(-50%); padding:10px 14px; border-radius:12px; background:#111733; border:1px solid #2b3566; font-weight:800; box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition: opacity .15s ease, transform .15s ease }
+  .floating.show{ opacity:1; transform:translate(-50%, 0) }
+
+  .modal{ position:fixed; inset:0; display:grid; place-items:center; background:rgba(5,7,15,.72); backdrop-filter: blur(6px); opacity:0; pointer-events:none; transition:opacity .15s ease }
+  .modal.show{ opacity:1; pointer-events:auto }
+  .card{ width:min(92vw, 520px); background:linear-gradient(180deg, #1b2146, #131a2e); border:1px solid #2c3463; border-radius:20px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,.55) }
+  .card h2{ margin:0 0 8px; font-size:22px }
+  .card p{ margin:6px 0; color:var(--mut) }
+  .actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap }
+
+  footer{ margin-top:12px; color:var(--mut); font-size:12px; text-align:center }
 </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="title">🍬 Mini Match-3</div>
+      <div class="title">🍬 Mini Match‑3 — Levels</div>
       <div class="stats">
+        <div class="chip">Level: <span id="level">1</span></div>
         <div class="chip">Score: <span id="score">0</span></div>
         <div class="chip">Moves: <span id="moves">20</span></div>
+        <div class="chip">Goal: <span id="goal">1000</span></div>
+        <div class="chip" id="jellyChip" style="display:none">Jelly Left: <span id="jellyLeft">0</span></div>
         <button id="shuffle" class="btn">Shuffle</button>
         <button id="restart" class="btn">Restart</button>
+        <button id="nextLevel" class="btn" disabled>Next Level ▶</button>
       </div>
     </header>
 
-    <div class="board">
-      <div id="grid" class="grid"></div>
-    </div>
+    <div class="board"><div id="grid" class="grid"></div></div>
 
-    <footer>Swap adjacent candies to make matches of 3+. Cascades score extra!</footer>
+    <footer>Swap adjacent candies to make matches of 3+. Clear jelly tiles on jelly levels. Meet the goal before moves run out.</footer>
   </div>
 
-  <!-- very small sounds (play on first interaction) -->
-  <audio id="s-pop" preload="auto">
-    <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA..." type="audio/mp3">
-  </audio>
-  <audio id="s-swap" preload="auto">
-    <source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA..." type="audio/mp3">
-  </audio>
+  <!-- lightweight embedded sounds (data URIs). Replace if you want. -->
+  <audio id="s-pop" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+  <audio id="s-swap" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+  <audio id="s-win" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+  <audio id="s-lose" preload="auto"><source src="data:audio/mp3;base64,//uQZAAAAAAAAAAAAAAAAAAAA" type="audio/mp3"></audio>
+
+  <div id="modal" class="modal" aria-hidden="true" role="dialog">
+    <div class="card">
+      <h2 id="modalTitle">Level Complete!</h2>
+      <p id="modalMsg">Nice job! You hit the goal.</p>
+      <div class="actions">
+        <button class="btn" id="btnReplay">Replay Level</button>
+        <button class="btn" id="btnNext">Next Level ▶</button>
+      </div>
+    </div>
+  </div>
 
 <script>
-/* Mini Match-3 — no dependencies */
 (() => {
+  /* =====================
+   *   CONFIG (edit here)
+   * ===================== */
   const COLS = 8, ROWS = 8, TYPES = 5;
+  const LEVELS = [
+    { id:1, target: 1200, moves: 20, jelly:false },
+    { id:2, target: 2200, moves: 22, jelly:true, jellyCount: 10 },
+    { id:3, target: 3200, moves: 24, jelly:true, jellyCount: 16 },
+    { id:4, target: 4500, moves: 26, jelly:false },
+  ];
+  const SCORE_PER_CANDY = 10; // base score per cleared candy; cascades amplify
+
+  // Optional Matomo (uncomment & add your site-id in HTML <head> if needed)
+  // function track(evt, data={}){ try{ if(window._paq){ _paq.push(['trackEvent','match3',evt, JSON.stringify(data)]); } }catch(e){} }
+  function track(){ /* no‑op by default */ }
+
+  /* ============== DOM refs ============== */
   const gridEl = document.getElementById('grid');
+  const levelEl = document.getElementById('level');
   const scoreEl = document.getElementById('score');
   const movesEl = document.getElementById('moves');
+  const goalEl = document.getElementById('goal');
+  const jellyChip = document.getElementById('jellyChip');
+  const jellyLeftEl = document.getElementById('jellyLeft');
   const restartBtn = document.getElementById('restart');
   const shuffleBtn = document.getElementById('shuffle');
+  const nextLevelBtn = document.getElementById('nextLevel');
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalMsg = document.getElementById('modalMsg');
+  const btnReplay = document.getElementById('btnReplay');
+  const btnNext = document.getElementById('btnNext');
+
   const popSnd = document.getElementById('s-pop');
   const swapSnd = document.getElementById('s-swap');
+  const winSnd = document.getElementById('s-win');
+  const loseSnd = document.getElementById('s-lose');
 
-  // CSS grid size
   gridEl.style.setProperty('--cols', COLS);
 
-  let board = [];
+  /* ============== state ============== */
+  let board = [];                 // flat array ROWS*COLS of type ids
   let score = 0;
-  let moves = 20;
-  let selected = null;      // {r,c}
-  let busy = false;         // lock during animations
+  let moves = 0;
+  let selected = null;            // {r,c}
+  let busy = false;               // lock interactions during animations
+  let audioEnabled = false;
+  let currentLevelIdx = 0;
+  let jellySet = new Set();       // cells index that require clearing
 
-  // helpers
   const idx = (r,c) => r*COLS + c;
   const inBounds = (r,c) => r>=0 && r<ROWS && c>=0 && c<COLS;
   const randType = () => Math.floor(Math.random()*TYPES);
 
-  // Sounds: play only after a user action (mobile autoplay rules)
-  let audioEnabled = false;
   const safePlay = a => { if(audioEnabled) { a.currentTime=0; a.play().catch(()=>{}); } };
+  const wait = ms => new Promise(res=>setTimeout(res,ms));
 
-  function createBoard() {
+  function saveProgress(){ localStorage.setItem('match3_level', String(currentLevelIdx)); }
+  function loadProgress(){ const v = +localStorage.getItem('match3_level'); if(!Number.isNaN(v)) currentLevelIdx = Math.max(0, Math.min(LEVELS.length-1, v)); }
+
+  function setupLevel(levelIdx){
+    const L = LEVELS[levelIdx];
+    score = 0; moves = L.moves; selected=null; busy=false; jellySet.clear(); nextLevelBtn.disabled = true;
+
+    levelEl.textContent = L.id; scoreEl.textContent = 0; movesEl.textContent = moves; goalEl.textContent = L.target;
+    if(L.jelly){ jellyChip.style.display='inline-flex'; } else { jellyChip.style.display='none'; }
+
+    createBoard(L);
+    render(L);
+    track('level_start', {level:L.id});
+  }
+
+  function createBoard(L){
     board = new Array(ROWS*COLS).fill(0);
-    for (let r=0; r<ROWS; r++) {
-      for (let c=0; c<COLS; c++) {
-        // avoid immediate 3-in-a-row on creation
+    for (let r=0; r<ROWS; r++){
+      for (let c=0; c<COLS; c++){
         let t;
-        do {
+        do{
           t = randType();
         } while( (c>=2 && t===board[idx(r,c-1)] && t===board[idx(r,c-2)]) ||
                  (r>=2 && t===board[idx(r-1,c)] && t===board[idx(r-2,c)]) );
         board[idx(r,c)] = t;
       }
     }
+    // Seed jelly cells (random unique positions)
+    if(L.jelly){
+      const want = Math.min(L.jellyCount||8, ROWS*COLS);
+      const all = [...Array(ROWS*COLS).keys()];
+      all.sort(()=>Math.random()-0.5);
+      for(let i=0;i<want;i++) jellySet.add(all[i]);
+      jellyLeftEl.textContent = jellySet.size;
+    }
   }
 
-  function render() {
+  function render(L=LEVELS[currentLevelIdx]){
     gridEl.innerHTML = '';
-    for (let r=0; r<ROWS; r++) {
-      for (let c=0; c<COLS; c++) {
-        const t = board[idx(r,c)];
+    for (let r=0; r<ROWS; r++){
+      for (let c=0; c<COLS; c++){
+        const i = idx(r,c); const t = board[i];
         const d = document.createElement('div');
-        d.className = `tile t${t}`;
+        d.className = `tile t${t}` + (jellySet.has(i)? ' jelly':'' );
         d.dataset.r = r; d.dataset.c = c;
-        d.role = 'button';
-        d.ariaLabel = `Candy ${t+1} at row ${r+1}, col ${c+1}`;
+        d.role = 'button'; d.ariaLabel = `Candy ${t+1} at row ${r+1}, col ${c+1}`;
         gridEl.appendChild(d);
       }
     }
   }
 
-  function findMatches() {
+  function findMatches(){
     const toClear = new Set();
     // rows
-    for (let r=0; r<ROWS; r++) {
+    for (let r=0; r<ROWS; r++){
       let run = 1;
-      for (let c=1; c<=COLS; c++) {
-        if (c<COLS && board[idx(r,c)] === board[idx(r,c-1)]) {
-          run++;
-        } else {
-          if (run>=3) {
-            for (let k=0; k<run; k++) toClear.add(idx(r,c-1-k));
-          }
-          run = 1;
-        }
+      for (let c=1; c<=COLS; c++){
+        if (c<COLS && board[idx(r,c)]===board[idx(r,c-1)]){ run++; }
+        else { if(run>=3){ for(let k=0;k<run;k++) toClear.add(idx(r,c-1-k)); } run=1; }
       }
     }
     // cols
-    for (let c=0; c<COLS; c++) {
+    for (let c=0; c<COLS; c++){
       let run = 1;
-      for (let r=1; r<=ROWS; r++) {
-        if (r<ROWS && board[idx(r,c)] === board[idx(r-1,c)]) {
-          run++;
-        } else {
-          if (run>=3) {
-            for (let k=0; k<run; k++) toClear.add(idx(r-1-k,c));
-          }
-          run = 1;
-        }
+      for (let r=1; r<=ROWS; r++){
+        if (r<ROWS && board[idx(r,c)]===board[idx(r-1,c)]){ run++; }
+        else { if(run>=3){ for(let k=0;k<run;k++) toClear.add(idx(r-1-k,c)); } run=1; }
       }
     }
     return [...toClear];
   }
 
-  async function clearMatches(cells, cascadeStep=1) {
-    if (!cells.length) return false;
-    // animate removal
-    cells.forEach(i => gridEl.children[i].classList.add('to-clear'));
+  async function clearMatches(cells, cascadeStep=1){
+    if(!cells.length) return false;
+    cells.forEach(i=> gridEl.children[i]?.classList.add('to-clear'));
     await wait(350);
     safePlay(popSnd);
 
-    // score (simple: 10 per candy * cascade bonus)
-    score += cells.length * 10 * cascadeStep;
+    // scoring with cascade multiplier
+    score += cells.length * SCORE_PER_CANDY * cascadeStep;
     scoreEl.textContent = score;
 
-    // remove (mark as -1)
-    cells.forEach(i => board[i] = -1);
+    // clear jelly if present under cleared cells
+    let clearedJelly = 0;
+    for(const i of cells){
+      if(jellySet.delete(i)) clearedJelly++;
+      board[i] = -1;
+    }
+    if(clearedJelly){ jellyLeftEl.textContent = jellySet.size; }
 
     // gravity
-    for (let c=0; c<COLS; c++) {
+    for (let c=0; c<COLS; c++){
       let write = ROWS-1;
-      for (let r=ROWS-1; r>=0; r--) {
+      for (let r=ROWS-1; r>=0; r--){
         const i = idx(r,c);
-        if (board[i] !== -1) {
-          board[idx(write,c)] = board[i];
-          write--;
-        }
+        if(board[i]!==-1){ board[idx(write,c)]=board[i]; write--; }
       }
-      for (let r=write; r>=0; r--) board[idx(r,c)] = -1;
+      for (let r=write; r>=0; r--){ board[idx(r,c)] = -1; }
     }
-
     // refill
-    for (let r=0; r<ROWS; r++) {
-      for (let c=0; c<COLS; c++) {
-        if (board[idx(r,c)] === -1) board[idx(r,c)] = randType();
+    for (let r=0; r<ROWS; r++){
+      for (let c=0; c<COLS; c++){
+        const i = idx(r,c);
+        if (board[i]===-1) board[i] = randType();
       }
     }
 
-    render(); // re-render new pieces
+    render();
 
-    // check cascades
+    // cascades
     const next = findMatches();
-    if (next.length) {
-      await clearMatches(next, cascadeStep+1);
-    }
+    if(next.length){ await clearMatches(next, cascadeStep+1); }
     return true;
   }
 
-  function areAdj(a,b){
-    const dr = Math.abs(a.r-b.r), dc = Math.abs(a.c-b.c);
-    return (dr+dc===1);
-  }
+  function areAdj(a,b){ const dr=Math.abs(a.r-b.r), dc=Math.abs(a.c-b.c); return dr+dc===1; }
 
-  async function trySwap(a,b) {
-    if (!areAdj(a,b)) return;
-    busy = true;
-    swapBoard(a,b);
-    // tiny swap animation hint
-    safePlay(swapSnd);
+  async function trySwap(a,b){
+    if(!areAdj(a,b)) return;
+    busy=true; swapBoard(a,b); safePlay(swapSnd);
     const ok = hasAnyMatchAt([a,b]);
-    if (!ok) {
-      // swap back (illegal)
-      await wait(120);
-      swapBoard(a,b);
-      busy = false;
-      return;
-    }
-    // a move was made
-    moves--; movesEl.textContent = moves;
-    // resolve matches/cascades
+    if(!ok){ await wait(120); swapBoard(a,b); busy=false; return; }
+
+    moves--; movesEl.textContent = moves; track('move', {level:LEVELS[currentLevelIdx].id, moves});
     const cells = findMatches();
     await clearMatches(cells);
-    busy = false;
+    busy=false;
 
-    if (moves<=0) toast("Out of moves! Press Restart.");
+    checkEnd();
   }
 
   function swapBoard(a,b){
-    const i1=idx(a.r,a.c), i2=idx(b.r,b.c);
-    const tmp=board[i1]; board[i1]=board[i2]; board[i2]=tmp;
-    // update only two DOM tiles quickly
+    const i1 = idx(a.r,a.c), i2 = idx(b.r,b.c);
+    const tmp = board[i1]; board[i1] = board[i2]; board[i2] = tmp;
+    // quick DOM class swap
     const t1 = gridEl.children[i1], t2 = gridEl.children[i2];
-    if (t1 && t2) {
-      const cl1 = t1.className, cl2 = t2.className;
-      t1.className = 'tile t'+board[i1];
-      t2.className = 'tile t'+board[i2];
-    }
+    if(t1 && t2){ t1.className = 'tile t'+board[i1] + (jellySet.has(i1)?' jelly':''); t2.className = 'tile t'+board[i2] + (jellySet.has(i2)?' jelly':''); }
   }
 
   function hasAnyMatchAt(pairs){
-    // quick check around swapped cells
-    for (const p of pairs) {
-      const {r,c} = p;
-      const t = board[idx(r,c)];
-      // row scan around c
-      let run=1;
-      for (let x=c-1; x>=0 && board[idx(r,x)]===t; x--) run++;
-      for (let x=c+1; x<COLS && board[idx(r,x)]===t; x++) run++;
-      if (run>=3) return true;
+    for(const p of pairs){
+      const {r,c} = p; const t = board[idx(r,c)];
+      // row scan
+      let run=1; for(let x=c-1; x>=0 && board[idx(r,x)]===t; x--) run++; for(let x=c+1; x<COLS && board[idx(r,x)]===t; x++) run++; if(run>=3) return true;
       // col scan
-      run=1;
-      for (let y=r-1; y>=0 && board[idx(y,c)]===t; y--) run++;
-      for (let y=r+1; y<ROWS && board[idx(y,c)]===t; y++) run++;
-      if (run>=3) return true;
+      run=1; for(let y=r-1; y>=0 && board[idx(y,c)]===t; y--) run++; for(let y=r+1; y<ROWS && board[idx(y,c)]===t; y++) run++; if(run>=3) return true;
     }
     return false;
   }
 
-  function toast(msg){
-    let el = document.querySelector('.floating');
-    if (!el){
-      el = document.createElement('div');
-      el.className = 'floating';
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.classList.add('show');
-    setTimeout(()=>el.classList.remove('show'), 1600);
-  }
-
-  function wait(ms){ return new Promise(res=>setTimeout(res,ms)); }
-
-  // Input handling (click & touch swipe)
-  function onSelect(r,c){
-    if (busy || moves<=0) return;
-    audioEnabled = true; // first interaction enables audio
-    const current = {r,c};
-    if (!selected){
-      selected = current;
-      tileAt(r,c)?.classList.add('selected');
-    } else {
-      const prev = selected;
-      tileAt(prev.r, prev.c)?.classList.remove('selected');
-      selected = null;
-      trySwap(prev, current);
-    }
-  }
-
+  function onSelect(r,c){ if(busy || moves<=0) return; audioEnabled=true; const current={r,c}; if(!selected){ selected=current; tileAt(r,c)?.classList.add('selected'); } else { const prev=selected; tileAt(prev.r,prev.c)?.classList.remove('selected'); selected=null; trySwap(prev,current); } }
+  let touchStart=null;
+  function onTouchStart(e){ const t=e.target.closest('.tile'); if(!t) return; const r=+t.dataset.r,c=+t.dataset.c; touchStart={r,c,x:e.touches[0].clientX,y:e.touches[0].clientY}; e.preventDefault(); }
+  function onTouchEnd(e){ if(!touchStart) return; const endX=e.changedTouches[0].clientX, endY=e.changedTouches[0].clientY; const dx=endX-touchStart.x, dy=endY-touchStart.y; const absX=Math.abs(dx), absY=Math.abs(dy); const {r,c}=touchStart; touchStart=null; if(absX<10 && absY<10){ onSelect(r,c); return; } let rr=r,cc=c; if(absX>absY) cc=c+(dx>0?1:-1); else rr=r+(dy>0?1:-1); if(!inBounds(rr,cc)) return; if(busy||moves<=0) return; audioEnabled=true; trySwap({r,c},{r:rr,c:cc}); }
+  function onClick(e){ const t=e.target.closest('.tile'); if(!t) return; const r=+t.dataset.r, c=+t.dataset.c; onSelect(r,c); }
   function tileAt(r,c){ return gridEl.children[idx(r,c)]; }
 
-  // Touch swipe (select then auto swap towards swipe direction)
-  let touchStart = null;
-  function onTouchStart(e){
-    const t = e.target.closest('.tile'); if(!t) return;
-    const r = +t.dataset.r, c = +t.dataset.c;
-    touchStart = {r,c, x:e.touches[0].clientX, y:e.touches[0].clientY};
-    e.preventDefault();
-  }
-  function onTouchEnd(e){
-    if (!touchStart) return;
-    const endX = e.changedTouches[0].clientX;
-    const endY = e.changedTouches[0].clientY;
-    const dx = endX - touchStart.x;
-    const dy = endY - touchStart.y;
-    const absX = Math.abs(dx), absY = Math.abs(dy);
-    const {r,c} = touchStart;
-    touchStart = null;
-    if (absX<10 && absY<10){ onSelect(r,c); return; }
-    let rr=r, cc=c;
-    if (absX>absY) cc = c + (dx>0? 1: -1); else rr = r + (dy>0? 1: -1);
-    if (!inBounds(rr,cc)) return;
-    if (busy || moves<=0) return;
-    audioEnabled = true;
-    trySwap({r,c},{r:rr,c:cc});
+  function checkEnd(){
+    const L = LEVELS[currentLevelIdx];
+    const metScore = score >= L.target;
+    const jellyOK = !L.jelly || jellySet.size===0;
+    if(metScore && jellyOK){
+      // win
+      nextLevelBtn.disabled = false; safePlay(winSnd); showModal(true, L);
+      track('level_win', {level:L.id, score});
+    } else if(moves<=0){
+      // lose
+      safePlay(loseSnd); showModal(false, L); track('level_lose', {level:L.id, score});
+    }
   }
 
-  function onClick(e){
-    const t = e.target.closest('.tile'); if(!t) return;
-    const r = +t.dataset.r, c = +t.dataset.c;
-    onSelect(r,c);
+  function showModal(win, L){
+    modalTitle.textContent = win? 'Level Complete! ⭐' : 'Level Failed';
+    modalMsg.textContent = win? `You met the goal${L.jelly? ' and cleared all jelly':''}!`
+                              : `Goal not met. Try again!`;
+    btnNext.disabled = !win;
+    modal.classList.add('show'); modal.setAttribute('aria-hidden','false');
   }
+  function hideModal(){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
 
-  function restart(){
-    score = 0; moves = 20;
-    scoreEl.textContent = score; movesEl.textContent = moves;
-    selected = null; busy = false;
-    createBoard(); render();
-  }
+  function restartLevel(){ hideModal(); setupLevel(currentLevelIdx); }
+  function goNextLevel(){ hideModal(); if(currentLevelIdx < LEVELS.length-1){ currentLevelIdx++; saveProgress(); setupLevel(currentLevelIdx); } else { toast('🎉 You beat all levels!'); } }
 
-  function shuffle(){
-    if (busy) return;
-    // simple shuffle of board contents (doesn't guarantee solvable)
-    board = board.sort(()=>Math.random()-0.5);
-    render();
-    toast('Shuffled!');
-  }
+  function shuffle(){ if(busy) return; board = board.sort(()=>Math.random()-0.5); render(); toast('Shuffled!'); }
 
-  // Init
-  createBoard(); render();
+  function toast(msg){ let el = document.querySelector('.floating'); if(!el){ el=document.createElement('div'); el.className='floating'; document.body.appendChild(el); } el.textContent = msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1600); }
+
+  // ==== Init ====
+  loadProgress(); setupLevel(currentLevelIdx);
+
   gridEl.addEventListener('click', onClick);
   gridEl.addEventListener('touchstart', onTouchStart, {passive:false});
   gridEl.addEventListener('touchend', onTouchEnd);
-
-  restartBtn.addEventListener('click', restart);
+  restartBtn.addEventListener('click', restartLevel);
   shuffleBtn.addEventListener('click', shuffle);
+  nextLevelBtn.addEventListener('click', goNextLevel);
+
+  // modal buttons
+  btnReplay.addEventListener('click', restartLevel);
+  btnNext.addEventListener('click', goNextLevel);
+
 })();
 </script>
+
+<!-- Optional: Matomo snippet (paste your URL + siteId). Then enable track() above.
+<script>
+  var _paq = window._paq = window._paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u="https://YOUR_MATOMO_DOMAIN/";
+    _paq.push(['setTrackerUrl', u+'matomo.php']);
+    _paq.push(['setSiteId', 'YOUR_SITE_ID']);
+    var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+    g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+  })();
+</script>
+-->
 </body>
 </html>
